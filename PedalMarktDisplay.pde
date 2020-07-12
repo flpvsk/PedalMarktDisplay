@@ -1,3 +1,5 @@
+import processing.video.*;
+
 PVector vOrigin;
 PVector vSize;
 int currentIterationStart = 0;
@@ -27,10 +29,18 @@ float lerpH(float amount) {
   return lerp(0, vSize.y, amount);
 }
 
+color genBrightColor(float seed) {
+  return color(noise(seed) * 100, 100, 100);
+}
+
 void settings() {
   // size(320, 240);
   fullScreen();
   // noCursor();
+}
+
+void movieEvent(Movie movie) {
+  movie.read();
 }
 
 color C_GREY;
@@ -46,9 +56,11 @@ void setup() {
   frameRate(24);
 
   steps = new Step[] {
+    new ShowVideoStep(),
     new FigureStep(),
     new MainLogoStep(),
     new Oscilations3(),
+    new ShowVideoStep(),
     new DottedLinesStep(),
     new Oscilations2(),
     new MainLogoStep(),
@@ -58,7 +70,7 @@ void setup() {
   };
 
   for (Step step : steps) {
-    step.setup();
+    step.setup(this);
   }
 
   C_GREY = color(0, 0, 10);
@@ -69,18 +81,17 @@ void setup() {
 
 interface Step {
   void run(float playhead, int iteration);
-  void setup();
+  void setup(PApplet parent);
 }
 
 void draw() {
-  clear();
-
   int m = millis();
 
   if (currentIterationStart + currentIterationDuration < m) {
     currentIterationStart = m;
-    currentIterationDuration = floor(random(2000, 6000));
+    currentIterationDuration = floor(random(2000, 8000));
     currentIteration += 1;
+    clear();
   }
 
   int currentProgress = m - currentIterationStart;
@@ -91,7 +102,7 @@ void draw() {
 
 
 class TestStep implements Step {
-  void setup() {}
+  void setup(PApplet parent) {}
   void run(float playhead, int iteration) {
     background(C_GREY);
     fill(0, 0, 100);
@@ -101,7 +112,7 @@ class TestStep implements Step {
 
 
 class ColorStep implements Step {
-  void setup() {}
+  void setup(PApplet parent) {}
   void run(float playhead, int iteration) {
     color c1 = C_GREY;
     color c2 = C_GREY;
@@ -124,22 +135,25 @@ class ColorStep implements Step {
 class MainLogoStep implements Step {
   PImage pmMain;
 
-  void setup() {
+  void setup(PApplet parent) {
     this.pmMain = loadImage("media/pedal-markt-main.png");
   }
 
   void run(float playhead, int iteration) {
     background(C_GREY);
+    tint(genBrightColor(100.0 * iteration));
     image(
       this.pmMain,
-      (width - this.pmMain.width) / 2, (height - this.pmMain.height) / 2,
+      (width - this.pmMain.width) / 2,
+      (height - this.pmMain.height) / 2,
       this.pmMain.width, this.pmMain.height
     );
+    noTint();
   }
 }
 
 class DottedLinesStep implements Step {
-  void setup() {
+  void setup(PApplet parent) {
   }
 
   void run(float playhead, int iteration) {
@@ -176,8 +190,9 @@ class DottedLinesStep implements Step {
       x = x % 1;
 
       float w = wDot;
+      fill(genBrightColor(y * h));
+      noStroke();
       rect(lerpX(x), lerpY(y), lerpW(w), lerpH(h));
-      fill(C_WHITE);
     }
   }
 }
@@ -185,7 +200,7 @@ class DottedLinesStep implements Step {
 class Oscilations1 implements Step {
   float seed;
 
-  void setup() {
+  void setup(PApplet parent) {
     this.seed = random(1);
   }
 
@@ -198,6 +213,7 @@ class Oscilations1 implements Step {
 
     noFill();
     strokeWeight(4);
+    stroke(genBrightColor(this.seed * iteration));
 
     beginShape();
     for (int i = 0; i <= pointCount; i++) {
@@ -209,14 +225,13 @@ class Oscilations1 implements Step {
       vertex(i, y);
     }
     endShape();
-    stroke(C_WHITE);
   }
 }
 
 class Oscilations2 implements Step {
   float seed;
 
-  void setup() {
+  void setup(PApplet parent) {
     this.seed = random(1);
   }
 
@@ -237,6 +252,7 @@ class Oscilations2 implements Step {
     float phi = playhead * 16 * TWO_PI;
 
     noFill();
+    stroke(genBrightColor(this.seed * iteration));
     strokeWeight(4);
 
     beginShape();
@@ -248,14 +264,13 @@ class Oscilations2 implements Step {
       vertex(i, y);
     }
     endShape();
-    stroke(C_WHITE);
   }
 }
 
 class Oscilations3 implements Step {
   float seed;
 
-  void setup() {
+  void setup(PApplet parent) {
     this.seed = random(1);
   }
 
@@ -285,13 +300,29 @@ class Oscilations3 implements Step {
     );
 
     float pointCount = vSize.x;
-    float phi = playhead * 16 * TWO_PI;
+    float phi = round(playhead * 5 * TWO_PI * 4.0) / 4.0;
 
     noFill();
     strokeWeight(4);
+    stroke(genBrightColor(this.seed * iteration));
+
+    int start = 0;
+    int finish = 0;
+
+    if (playhead < 0.5) {
+      float eased = map2(playhead, 0, 0.5, 0, 1, CUBIC, EASE_IN);
+      start = 0;
+      finish = int(pointCount * eased);
+    }
+
+    if (playhead >= 0.5) {
+      float eased = map2(playhead, 0.5, 1, 0, 1, CUBIC, EASE_OUT);
+      start = int(eased * pointCount);
+      finish = int(pointCount);
+    }
 
     beginShape();
-    for (int i = 0; i <= pointCount; i++) {
+    for (int i = start; i <= finish; i++) {
       float angle = map(i, 0, pointCount, 0, TWO_PI);
 
       float x = (
@@ -308,8 +339,8 @@ class Oscilations3 implements Step {
 
       vertex(lerpX(x), lerpYMargin(y, 0.1));
     }
+
     endShape();
-    stroke(C_WHITE);
   }
 }
 
@@ -329,11 +360,12 @@ class FigureStep implements Step {
     ""
   };
 
-  void setup() {
+  void setup(PApplet parent) {
     this.seed = random(1);
   }
 
   void run(float playhead, int iteration) {
+    clear();
     int figures = int(noise(iteration * seed) * 5) + 1;
     blendMode(EXCLUSION);
     for (int i = 0; i < figures; i++) {
@@ -429,4 +461,48 @@ class FigureStep implements Step {
     );
     noFill();
   }
+}
+
+
+class ShowVideoStep implements Step {
+  String[] fileList;
+  int lastIteration;
+  Movie movie;
+  float seed;
+  PApplet parent;
+
+  void setup(PApplet parent) {
+    this.seed = random(1);
+    this.lastIteration = -1;
+    this.fileList = new String[] {
+      "dba-fw-1.mov",
+      "meris-enzo-1.mov",
+      "eae-1.mov",
+      "eae-2.mov",
+      "hovercat-1.mov",
+      "rainger-1.mov",
+      "voland-ed-1.mov",
+    };
+    this.movie = null;
+    this.parent = parent;
+  }
+
+  void run(float playhead, int iteration) {
+    if (this.movie == null || this.lastIteration != iteration) {
+      int pathInd = floor(
+        noise(iteration * this.seed) * fileList.length
+      );
+      String path = this.fileList[pathInd];
+      this.movie = new Movie(this.parent, path);
+      this.movie.loop();
+      this.lastIteration = iteration;
+    }
+
+    float glitch = round(playhead * 100.0) / 100.0;
+    this.movie.jump(noise(iteration, glitch) * movie.duration());
+    tint(noise(seed * iteration) * 100, 100, 100);
+    image(this.movie, 0, (height - this.movie.height) / 2);
+    noTint();
+  }
+
 }

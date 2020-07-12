@@ -1,4 +1,5 @@
-import processing.video.*;
+// import processing.video.*;
+import gohai.glvideo.*;
 
 PVector vOrigin;
 PVector vSize;
@@ -34,14 +35,13 @@ color genBrightColor(float seed) {
 }
 
 void settings() {
-  // size(320, 240);
-  fullScreen();
-  // noCursor();
+  // size(320, 240, P2D);
+  fullScreen(P2D);
 }
 
-void movieEvent(Movie movie) {
-  movie.read();
-}
+// void movieEvent(Movie movie) {
+//   movie.read();
+// }
 
 color C_GREY;
 color C_PURPLE;
@@ -49,6 +49,8 @@ color C_GREEN;
 color C_WHITE;
 
 void setup() {
+  noCursor();
+
   vOrigin = new PVector(0, 0);
   vSize = new PVector(width, height);
 
@@ -104,8 +106,9 @@ void draw() {
 class TestStep implements Step {
   void setup(PApplet parent) {}
   void run(float playhead, int iteration) {
-    background(C_GREY);
+    clear();
     fill(0, 0, 100);
+    noStroke();
     rect(lerpX(0.1), lerpY(0.2), lerpW(0.2), lerpH(0.5));
   }
 }
@@ -140,7 +143,7 @@ class MainLogoStep implements Step {
   }
 
   void run(float playhead, int iteration) {
-    background(C_GREY);
+    clear();
     tint(genBrightColor(100.0 * iteration));
     image(
       this.pmMain,
@@ -157,7 +160,7 @@ class DottedLinesStep implements Step {
   }
 
   void run(float playhead, int iteration) {
-    background(C_GREY);
+    clear();
     int lines = floor(noise(0, iteration) * 10) + 1;
     float y = 0;
 
@@ -169,7 +172,8 @@ class DottedLinesStep implements Step {
         noise(i + 3, iteration) * 0.1,
         noise(i + 4, iteration) * 0.1,
         noise(i + 5, iteration) * 100,
-        playhead
+        playhead,
+        genBrightColor(noise(i, iteration))
       );
     }
   }
@@ -180,7 +184,8 @@ class DottedLinesStep implements Step {
     float wDot,
     float wSpace,
     float slowdown,
-    float playhead
+    float playhead,
+    color c
   ) {
     float pl = round(playhead * slowdown) / slowdown;
     float wPart = wDot + wSpace;
@@ -190,7 +195,7 @@ class DottedLinesStep implements Step {
       x = x % 1;
 
       float w = wDot;
-      fill(genBrightColor(y * h));
+      fill(c);
       noStroke();
       rect(lerpX(x), lerpY(y), lerpW(w), lerpH(h));
     }
@@ -205,10 +210,10 @@ class Oscilations1 implements Step {
   }
 
   void run(float playhead, int iteration) {
-    background(C_GREY);
+    clear();
     float freq = noise(seed) * 10;
     float pointCount = width;
-    float phi = playhead * 16 * TWO_PI;
+    float phi = playhead * 100 * TWO_PI * noise(seed * iteration);
     // float phi = 0.0;
 
     noFill();
@@ -236,7 +241,7 @@ class Oscilations2 implements Step {
   }
 
   void run(float playhead, int iteration) {
-    background(C_GREY);
+    clear();
     // float freqCarrier = 1;
     float freqCarrier = (
       noise(iteration * 1, seed) *
@@ -249,7 +254,7 @@ class Oscilations2 implements Step {
     );
 
     float pointCount = vSize.x;
-    float phi = playhead * 16 * TWO_PI;
+    float phi = playhead * 100 * TWO_PI * noise(seed * iteration);
 
     noFill();
     stroke(genBrightColor(this.seed * iteration));
@@ -275,7 +280,7 @@ class Oscilations3 implements Step {
   }
 
   void run(float playhead, int iteration) {
-    background(C_GREY);
+    clear();
 
     // float freqCarrier = 1;
     float freqCarrierX = (
@@ -347,17 +352,10 @@ class Oscilations3 implements Step {
 class FigureStep implements Step {
   float seed;
   String[] letters = {
-    "w",
-    "p",
-    "",
-    "&",
-    "v",
-    "",
-    " ",
-    "x",
-    "d",
-    "o",
-    ""
+    "л",
+    "α",
+    "愛",
+    "प्रेम",
   };
 
   void setup(PApplet parent) {
@@ -392,11 +390,7 @@ class FigureStep implements Step {
 
   void drawLine(int iteration) {
     strokeWeight(noise(seed * iteration * 195) * 20);
-    stroke(
-      195,
-      noise(seed * iteration * 195) * 100,
-      100
-    );
+    stroke(genBrightColor(noise(seed * iteration, 10)));
     noFill();
 
     line(
@@ -412,19 +406,12 @@ class FigureStep implements Step {
   void drawLetter(int iteration) {
     noStroke();
     fill(
-      noise(seed * iteration * 360) * 360,
-      noise(seed * iteration * 100) * 100,
-      50
+      genBrightColor(noise(seed * iteration, 11))
     );
 
     int ind = floor(noise(iteration * seed * 101) * this.letters.length);
 
-    textFont(
-      createFont(
-        "Arial",
-        noise(iteration * seed * 100) * 100 + 100
-      )
-    );
+    textSize(50 + 200 * noise(iteration * seed, 102));
 
     text(
       this.letters[ind],
@@ -438,24 +425,24 @@ class FigureStep implements Step {
   void drawCircle(int iteration) {
     noStroke();
     fill(
-      noise(seed * iteration * 100) * 100 + 40,
-      100,
-      noise(seed * iteration * 110) * 100
+      genBrightColor(noise(seed * iteration, 12))
     );
-    circle(
+
+    float r = lerpH(noise(seed * iteration * 113));
+    ellipse(
       lerpX(noise(seed * iteration * 111)),
       lerpY(noise(seed * iteration * 112)),
-      lerpH(noise(seed * iteration * 113))
+      r,
+      r
     );
     noFill();
   }
 
   void drawRect(int iteration) {
     fill(
-      noise(seed * iteration * 100) * 100 + 200,
-      80,
-      80
+      genBrightColor(noise(seed * iteration, 13))
     );
+    noStroke();
     rect(
       lerpX(noise(seed * iteration * 211)),
       lerpY(noise(seed * iteration * 212)),
@@ -470,7 +457,7 @@ class FigureStep implements Step {
 class ShowVideoStep implements Step {
   String[] fileList;
   int lastIteration;
-  Movie movie;
+  GLMovie movie;
   float seed;
   PApplet parent;
 
@@ -478,33 +465,55 @@ class ShowVideoStep implements Step {
     this.seed = random(1);
     this.lastIteration = -1;
     this.fileList = new String[] {
+      "william-2.mov",
       "dba-fw-1.mov",
       "meris-enzo-1.mov",
       "eae-1.mov",
+      "hovercat-3.mov",
       "eae-2.mov",
       "hovercat-1.mov",
+      "alvin-1.mov",
       "rainger-1.mov",
       "voland-ed-1.mov",
+      "keir-1.mov"
     };
     this.movie = null;
     this.parent = parent;
   }
 
   void run(float playhead, int iteration) {
+    clear();
     if (this.movie == null || this.lastIteration != iteration) {
-      int pathInd = floor(
-        noise(iteration * this.seed) * fileList.length
+      if (this.movie != null) {
+        this.movie.close();
+      }
+
+      int pathInd = round(
+        noise(iteration * 10, this.seed) * fileList.length
       );
       String path = this.fileList[pathInd];
-      this.movie = new Movie(this.parent, path);
+      this.movie = new GLMovie(this.parent, path);
       this.movie.loop();
+      this.movie.speed(1.0 + noise(iteration * this.seed));
       this.lastIteration = iteration;
     }
 
-    float glitch = round(playhead * 100.0) / 100.0;
-    this.movie.jump(noise(iteration, glitch) * movie.duration());
+    if (!this.movie.available()) {
+      return;
+    }
+
+    this.movie.read();
+
+    // float glitch = round(playhead * 100.0) / 100.0;
+    // this.movie.jump(noise(iteration, glitch) * movie.duration());
     tint(noise(seed * iteration) * 100, 100, 100);
-    image(this.movie, 0, (height - this.movie.height) / 2, width, height);
+    image(
+      this.movie,
+      (width - this.movie.width) / 2,
+      (height - this.movie.height) / 2,
+      this.movie.width,
+      this.movie.height
+    );
     noTint();
   }
 

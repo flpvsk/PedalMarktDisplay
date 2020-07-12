@@ -397,6 +397,7 @@ class FigureStep implements Step {
       noise(seed * iteration * 195) * 100,
       100
     );
+    noFill();
 
     line(
       lerpX(noise(seed * iteration * 10)),
@@ -409,6 +410,7 @@ class FigureStep implements Step {
   }
 
   void drawLetter(int iteration) {
+    noStroke();
     fill(
       noise(seed * iteration * 360) * 360,
       noise(seed * iteration * 100) * 100,
@@ -434,6 +436,7 @@ class FigureStep implements Step {
   }
 
   void drawCircle(int iteration) {
+    noStroke();
     fill(
       noise(seed * iteration * 100) * 100 + 40,
       100,
@@ -501,7 +504,7 @@ class ShowVideoStep implements Step {
     float glitch = round(playhead * 100.0) / 100.0;
     this.movie.jump(noise(iteration, glitch) * movie.duration());
     tint(noise(seed * iteration) * 100, 100, 100);
-    image(this.movie, 0, (height - this.movie.height) / 2);
+    image(this.movie, 0, (height - this.movie.height) / 2, width, height);
     noTint();
   }
 

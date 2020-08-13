@@ -212,7 +212,8 @@ class Oscilations1 implements Step {
   void run(float playhead, int iteration) {
     clear();
     float freq = noise(seed) * 10;
-    float pointCount = width;
+    int reduceQ = 5;
+    float pointCount = int(width / reduceQ);
     float phi = playhead * 100 * TWO_PI * noise(seed * iteration);
     // float phi = 0.0;
 
@@ -227,7 +228,7 @@ class Oscilations1 implements Step {
         (sin(angle * freq + radians(phi)) + 1) / 2,
         0.2
       );
-      vertex(i, y);
+      vertex(i * reduceQ, y);
     }
     endShape();
   }
@@ -253,7 +254,8 @@ class Oscilations2 implements Step {
       pow(10, floor(noise(iteration * 4, seed) * 3))
     );
 
-    float pointCount = vSize.x;
+    int reduceQ = 5;
+    float pointCount = int(width / reduceQ);
     float phi = playhead * 100 * TWO_PI * noise(seed * iteration);
 
     noFill();
@@ -266,7 +268,7 @@ class Oscilations2 implements Step {
       float signal = sin(angle * freqSignal + radians(phi));
       float carrier = cos(angle * freqCarrier);
       float y = lerpYMargin((signal * carrier + 1) / 2, 0.2);
-      vertex(i, y);
+      vertex(i * 5, y);
     }
     endShape();
   }
@@ -304,7 +306,8 @@ class Oscilations3 implements Step {
       pow(10, floor(noise(iteration * 8, seed) * 3))
     );
 
-    float pointCount = vSize.x;
+    int reduceQ = 3;
+    float pointCount = int(width / reduceQ);
     float phi = round(playhead * 5 * TWO_PI * 4.0) / 4.0;
 
     noFill();
@@ -509,10 +512,10 @@ class ShowVideoStep implements Step {
     tint(noise(seed * iteration) * 100, 100, 100);
     image(
       this.movie,
-      (width - this.movie.width) / 2,
-      (height - this.movie.height) / 2,
-      this.movie.width,
-      this.movie.height
+      (width - 2 * this.movie.width) / 2,
+      (height - 2 * this.movie.height) / 2,
+      2 * this.movie.width,
+      2 * this.movie.height
     );
     noTint();
   }

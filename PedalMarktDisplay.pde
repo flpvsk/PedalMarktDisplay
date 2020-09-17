@@ -1,6 +1,9 @@
 // import processing.video.*;
 import gohai.glvideo.*;
 
+// import com.hamoid.VideoExport;
+// VideoExport videoExport;
+
 PVector vOrigin;
 PVector vSize;
 int currentIterationStart = 0;
@@ -34,8 +37,12 @@ color genBrightColor(float seed) {
   return color(noise(seed) * 100, 100, 100);
 }
 
+color genDarkColor(float seed) {
+  return color(noise(seed) * 100, 70, 50);
+}
+
 void settings() {
-  // size(320, 240, P2D);
+  // size(640, 480, P2D);
   fullScreen(P2D);
 }
 
@@ -51,6 +58,9 @@ color C_WHITE;
 void setup() {
   noCursor();
 
+  // videoExport = new VideoExport(this);
+  // videoExport.startMovie();
+
   vOrigin = new PVector(0, 0);
   vSize = new PVector(width, height);
 
@@ -59,16 +69,18 @@ void setup() {
 
   steps = new Step[] {
     new ShowVideoStep(),
+    new Oscilations4(),
     new FigureStep(),
     new MainLogoStep(),
     new Oscilations3(),
+    new TextStep(),
+    new TextStep(),
     new ShowVideoStep(),
     new DottedLinesStep(),
     new Oscilations2(),
     new MainLogoStep(),
-    // new ColorStep(),
     new Oscilations1(),
-    // new TestStep(),
+    new TextStep(),
   };
 
   for (Step step : steps) {
@@ -100,8 +112,16 @@ void draw() {
   int stepInd = currentIteration % steps.length;
   float playhead = float(currentProgress) / currentIterationDuration;
   steps[stepInd].run(playhead, currentIteration);
+
+  // videoExport.saveFrame();
 }
 
+void keyPressed() {
+  // if (key == 'q') {
+  //   videoExport.endMovie();
+  //   exit();
+  // }
+}
 
 class TestStep implements Step {
   void setup(PApplet parent) {}
@@ -211,6 +231,9 @@ class Oscilations1 implements Step {
 
   void run(float playhead, int iteration) {
     clear();
+
+    // drawGrid(4, 4, genDarkColor(this.seed * iteration * 100));
+
     float freq = noise(seed) * 10;
     int reduceQ = 5;
     float pointCount = int(width / reduceQ);
@@ -243,6 +266,9 @@ class Oscilations2 implements Step {
 
   void run(float playhead, int iteration) {
     clear();
+
+    drawGrid(10, 10, genDarkColor(this.seed * iteration * 100));
+
     // float freqCarrier = 1;
     float freqCarrier = (
       noise(iteration * 1, seed) *
@@ -285,6 +311,7 @@ class Oscilations3 implements Step {
     clear();
 
     // float freqCarrier = 1;
+
     float freqCarrierX = (
       noise(iteration * 1, seed) *
       pow(10, floor(noise(iteration * 2, seed) * 3))
@@ -352,13 +379,152 @@ class Oscilations3 implements Step {
   }
 }
 
+interface Op {
+  float apply(float a1, float a2);
+}
+
+class Mult implements Op {
+  float apply(float a1, float a2) {
+    return a1 * a2;
+  }
+}
+
+class Sum implements Op {
+  float apply(float a1, float a2) {
+    return (a1 + a2) / 2;
+  }
+}
+
+class Pow implements Op {
+  float apply(float a1, float a2) {
+    return pow(a1, a2);
+  }
+}
+
+class Div implements Op {
+  float apply(float a1, float a2) {
+    return a1 / (a2 + 1);
+  }
+}
+
+void drawGrid(int rows, int cols, color c) {
+  int midC = round(cols / 2);
+  int midR = round(rows / 2);
+  for (int row = 1; row <= rows - 1; row++) {
+    strokeWeight(1 + int(row == midR) * 3);
+    stroke(c);
+    line(
+      lerpX(0),
+      lerpY(float(row) / rows),
+      lerpX(1),
+      lerpY(float(row) / rows)
+    );
+  }
+
+  for (int col = 1; col <= cols - 1; col++) {
+    strokeWeight(1 + int(col == midC) * 3);
+    stroke(c);
+    line(
+      lerpX(float(col) / cols),
+      lerpY(0),
+      lerpX(float(col) / cols),
+      lerpY(1)
+    );
+  }
+}
+
+class Oscilations4 implements Step {
+  float seed;
+  Op ops[];
+
+  void setup(PApplet parent) {
+    this.seed = random(1);
+    this.ops = new Op[] {
+      // new Mult(),
+      // new Sum(),
+      new Div(),
+    };
+  }
+
+  void run(float playhead, int iteration) {
+    clear();
+    drawGrid(10, 10, genDarkColor(this.seed * iteration * 100));
+    // float freqCarrier = 1;
+    float freqCarrier = (
+      noise(iteration * 1, seed) *
+      pow(10, floor(noise(iteration * 2, seed) * 3))
+    );
+    // float freqSignal = 0.2;
+    float freqSignal = (
+      noise(iteration * 3, seed) *
+      pow(10, floor(noise(iteration * 4, seed) * 3))
+    );
+
+    int reduceQ = 5;
+    int pointCount = int(width / reduceQ);
+    float phi = playhead * 100 * TWO_PI * noise(seed * iteration);
+    Op op = ops[floor(noise(iteration, seed) * 10) % ops.length];
+
+    noFill();
+    stroke(genBrightColor(this.seed * iteration));
+    strokeWeight(4);
+
+    float[] signalPoints = new float[pointCount];
+    float[] carrierPoints = new float[pointCount];
+
+    for (int i = 0; i < pointCount; i++) {
+      float angle = map(i, 0, pointCount, 0, TWO_PI);
+      float signal = (1 + sin(angle * freqSignal + radians(phi))) / 2;
+      float carrier = (1 + sin(angle * freqCarrier + radians(phi))) / 2;
+      signalPoints[i] = signal;
+      carrierPoints[i] = carrier;
+    }
+
+    beginShape();
+    for (int i = 0; i < pointCount; i++) {
+      float y = lerp(
+        vOrigin.y + vSize.y * 0.05,
+        vOrigin.y + vSize.y * 0.3,
+        signalPoints[i]
+      );
+      vertex(i * 5, y);
+    }
+    endShape();
+
+    beginShape();
+    for (int i = 0; i < pointCount; i++) {
+      float y = lerp(
+        vOrigin.y + vSize.y * 0.36,
+        vOrigin.y + vSize.y * 0.63,
+        carrierPoints[i]
+      );
+      vertex(i * 5, y);
+    }
+    endShape();
+
+    beginShape();
+    for (int i = 0; i < pointCount; i++) {
+      float y = lerp(
+        vOrigin.y + vSize.y * 0.69,
+        vOrigin.y + vSize.y * 0.95,
+        op.apply(signalPoints[i],  carrierPoints[i])
+      );
+
+      vertex(i * 5, y);
+    }
+    endShape();
+  }
+}
+
 class FigureStep implements Step {
   float seed;
   String[] letters = {
     "л",
-    "α",
-    "愛",
-    "प्रेम",
+    "ю",
+    "б",
+    "о",
+    "в",
+    "ь"
   };
 
   void setup(PApplet parent) {
@@ -373,20 +539,21 @@ class FigureStep implements Step {
       int f = int(noise(iteration * seed * i) * 10) % 4;
 
       if (f == 0) {
-        drawLine(iteration << i);
+        drawLine(iteration >> i);
+        continue;
       }
 
       if (f == 1) {
-        drawLetter(iteration << i);
+        drawRect(iteration >> i);
+        continue;
       }
 
       if (f == 2) {
-        drawCircle(iteration << i);
+        drawCircle(iteration >> i);
+        continue;
       }
 
-      if (f == 3) {
-        drawRect(iteration << i);
-      }
+      drawLetter(iteration >> i);
     }
     blendMode(BLEND);
   }
@@ -520,4 +687,52 @@ class ShowVideoStep implements Step {
     noTint();
   }
 
+}
+
+String[] EVENTS = new String[] {
+  "08.09 16:00 – DIYDay Electronics Co-working",
+  "10.09 12:00 – Builders Circuit Meetup #1",
+  "12.09 12:00 – Set up your guitar with Ruby Guitars",
+  "15.09 16:00 – DIYDay Electronics Co-working",
+  "22.09 16:00 – DIYDay Electronics Co-working",
+  "25.09 15:00 – Build your synth with Error Instruments",
+  "25.09 18:00 – [Ge]narrative exhibition opening",
+  "29.09 16:00 – DIYDay Electronics Co-working",
+};
+
+class TextStep implements Step {
+
+  float seed;
+
+  void setup(PApplet parent) {
+    this.seed = random(1);
+  }
+
+  void run(float playhead, int iteration) {
+    clear();
+    noStroke();
+    color c = genBrightColor(noise(seed * iteration, 11));
+    fill(c);
+
+    textSize(30);
+
+    text(
+      "Events in September",
+      lerpX(0.06),
+      lerpY(0.15)
+    );
+
+    float y = 0.2;
+    float yInc = 0.06;
+
+    for (String event : EVENTS) {
+      textSize(21);
+
+      text(
+        event,
+        lerpX(0.06),
+        lerpY(y += yInc)
+      );
+    }
+  }
 }

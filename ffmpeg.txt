@@ -1,0 +1,2 @@
+ffmpeg -i $0 -s 640x480 -an -pix_fmt yuva420p -vf format=gray out.mp4
+ffmpeg -i video.mp4 -vf fps=1 img/output%06d.png

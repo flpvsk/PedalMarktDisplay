@@ -9,6 +9,7 @@ PVector vSize;
 int currentIterationStart = 0;
 int currentIterationDuration = 0;
 int currentIteration = 0;
+PImage imgCapturedFrame;
 
 Step[] steps;
 
@@ -67,13 +68,14 @@ void setup() {
   colorMode(HSB, 100);
   frameRate(24);
 
+  imgCapturedFrame = createImage(width, height, RGB);
+
   steps = new Step[] {
     new ShowVideoStep(),
     new Oscilations4(),
     new FigureStep(),
     new MainLogoStep(),
     new Oscilations3(),
-    new TextStep(),
     new TextStep(),
     new ShowVideoStep(),
     new DottedLinesStep(),
@@ -82,6 +84,22 @@ void setup() {
     new Oscilations1(),
     new TextStep(),
   };
+
+  //steps = new Step[] {
+
+  //  new Oscilations4(),
+  //  new FigureStep(),
+  //  new MainLogoStep(),
+  //  new Oscilations3(),
+  //  new TextStep(),
+  //  // new TextStep(),
+
+  //  new DottedLinesStep(),
+  //  new Oscilations2(),
+  //  new MainLogoStep(),
+  //  new Oscilations1(),
+  //  new TextStep(),
+  //};
 
   for (Step step : steps) {
     step.setup(this);
@@ -105,7 +123,12 @@ void draw() {
     currentIterationStart = m;
     currentIterationDuration = floor(random(2000, 8000));
     currentIteration += 1;
+
+    maybeCaptureFrame(0.0001, currentIteration, 0);
     clear();
+
+    blendMode(round(noise(currentIteration) * 3));
+    drawCapturedFrame(0.0001, currentIteration, 0);
   }
 
   int currentProgress = m - currentIterationStart;
@@ -163,7 +186,10 @@ class MainLogoStep implements Step {
   }
 
   void run(float playhead, int iteration) {
+    maybeCaptureFrame(playhead, iteration, 0);
     clear();
+    drawCapturedFrame(playhead, iteration, 0);
+
     tint(genBrightColor(100.0 * iteration));
     image(
       this.pmMain,
@@ -180,7 +206,10 @@ class DottedLinesStep implements Step {
   }
 
   void run(float playhead, int iteration) {
+    maybeCaptureFrame(playhead, iteration, 0);
     clear();
+    drawCapturedFrame(playhead, iteration, 0);
+
     int lines = floor(noise(0, iteration) * 10) + 1;
     float y = 0;
 
@@ -230,7 +259,9 @@ class Oscilations1 implements Step {
   }
 
   void run(float playhead, int iteration) {
+    maybeCaptureFrame(playhead, iteration, seed);
     clear();
+    drawCapturedFrame(playhead, iteration, seed);
 
     // drawGrid(4, 4, genDarkColor(this.seed * iteration * 100));
 
@@ -265,9 +296,13 @@ class Oscilations2 implements Step {
   }
 
   void run(float playhead, int iteration) {
+    maybeCaptureFrame(playhead, iteration, seed);
     clear();
+    drawCapturedFrame(playhead, iteration, seed);
 
-    drawGrid(10, 10, genDarkColor(this.seed * iteration * 100));
+    if (noise(iteration * 1, seed) > 0.3) {
+      drawGrid(10, 10, genDarkColor(this.seed * iteration * 100));
+    }
 
     // float freqCarrier = 1;
     float freqCarrier = (
@@ -308,7 +343,9 @@ class Oscilations3 implements Step {
   }
 
   void run(float playhead, int iteration) {
+    maybeCaptureFrame(playhead, iteration, seed);
     clear();
+    drawCapturedFrame(playhead, iteration, seed);
 
     // float freqCarrier = 1;
 
@@ -433,6 +470,8 @@ void drawGrid(int rows, int cols, color c) {
   }
 }
 
+int[] signs = new int[]{ 1, -1 };
+
 class Oscilations4 implements Step {
   float seed;
   Op ops[];
@@ -447,8 +486,13 @@ class Oscilations4 implements Step {
   }
 
   void run(float playhead, int iteration) {
+    maybeCaptureFrame(playhead, iteration, seed);
     clear();
-    drawGrid(10, 10, genDarkColor(this.seed * iteration * 100));
+    drawCapturedFrame(playhead, iteration, seed);
+
+    if (noise(iteration * 1, seed) > 0.5) {
+      drawGrid(10, 10, genDarkColor(this.seed * iteration * 100));
+    }
     // float freqCarrier = 1;
     float freqCarrier = (
       noise(iteration * 1, seed) *
@@ -516,6 +560,38 @@ class Oscilations4 implements Step {
   }
 }
 
+void captureFrame() {
+  loadPixels();
+  //imgCapturedFrame.loadPixels();
+  arrayCopy(pixels, imgCapturedFrame.pixels);
+  imgCapturedFrame.updatePixels();
+}
+
+void maybeCaptureFrame(float playhead, int iteration, float seed) {
+  float n = noise(iteration, seed * 1);
+  float np = noise(iteration + 2 * playhead, seed);
+  if (n <= 0.5) captureFrame();
+  if (n > 0.5 && floor(np * 100) % 6 == 0 ) {
+    captureFrame();
+  }
+}
+
+void drawCapturedFrame(float playhead, int iteration, float seed) {
+  float n = noise(iteration, seed * 1);
+  int n10 = round(n * 10);
+  float n100_1 = min(round(noise(iteration, seed * 1) * 100 + 50), 100);
+  float n100_2 = min(round(noise(iteration, seed * 2) * 10 + 90), 100);
+  float n100_3 = min(round(noise(iteration, seed * 3) * 100 + 50), 100);
+  float np = noise(iteration + 2 * playhead, seed);
+  tint(n100_1, n100_2, n100_3, n100_2);
+  image(getCapturedFrame(),  round((n10 / 2) * n - n10), signs[int(n > 0.5)] * round((n100_3 * np / 2 - n10) / n10));
+  noTint();
+}
+
+PImage getCapturedFrame() {
+  return imgCapturedFrame;
+}
+
 class FigureStep implements Step {
   float seed;
   String[] letters = {
@@ -532,7 +608,10 @@ class FigureStep implements Step {
   }
 
   void run(float playhead, int iteration) {
+    maybeCaptureFrame(playhead, iteration, 0);
     clear();
+    drawCapturedFrame(playhead, iteration, 0);
+
     int figures = int(noise(iteration * seed) * 5) + 1;
     blendMode(EXCLUSION);
     for (int i = 0; i < figures; i++) {
@@ -652,7 +731,10 @@ class ShowVideoStep implements Step {
   }
 
   void run(float playhead, int iteration) {
+    maybeCaptureFrame(playhead, iteration, 0);
     clear();
+    drawCapturedFrame(playhead, iteration, 0);
+
     if (this.movie == null || this.lastIteration != iteration) {
       if (this.movie != null) {
         this.movie.close();
@@ -690,14 +772,25 @@ class ShowVideoStep implements Step {
 }
 
 String[] EVENTS = new String[] {
-  "08.09 16:00 – DIYDay Electronics Co-working",
-  "10.09 12:00 – Builders Circuit Meetup #1",
-  "12.09 12:00 – Set up your guitar with Ruby Guitars",
-  "15.09 16:00 – DIYDay Electronics Co-working",
-  "22.09 16:00 – DIYDay Electronics Co-working",
-  "25.09 15:00 – Build your synth with Error Instruments",
-  "25.09 18:00 – [Ge]narrative exhibition opening",
-  "29.09 16:00 – DIYDay Electronics Co-working",
+//   "08.09 16:00 – DIYDay Electronics Co-working",
+//   "10.09 12:00 – Builders Circuit Meetup #1",
+//   "12.09 12:00 – Set up your guitar with Ruby Guitars",
+//   "15.09 16:00 – DIYDay Electronics Co-working",
+//   "22.09 16:00 – DIYDay Electronics Co-working",
+//   "25.09 15:00 – Build your synth with Error Instruments",
+//   "25.09 18:00 – [Ge]narrative exhibition opening",
+//   "29.09 16:00 – DIYDay Electronics Co-working",
+  "Stay safe",
+  "Stay safe",
+  "Stay safe",
+  "Stay safe",
+  "Stay safe",
+  "Stay safe",
+  "Stay safe",
+  "Stay safe",
+  "Stay safe",
+  "Stay safe",
+  "Stay safe",
 };
 
 class TextStep implements Step {
@@ -709,7 +802,10 @@ class TextStep implements Step {
   }
 
   void run(float playhead, int iteration) {
+    maybeCaptureFrame(playhead, iteration, 0);
     clear();
+    drawCapturedFrame(playhead, iteration, 0);
+
     noStroke();
     color c = genBrightColor(noise(seed * iteration, 11));
     fill(c);
@@ -717,7 +813,7 @@ class TextStep implements Step {
     textSize(30);
 
     text(
-      "Events in September",
+      "We are coming back soon",
       lerpX(0.06),
       lerpY(0.15)
     );

@@ -121,7 +121,7 @@ void draw() {
 
   if (currentIterationStart + currentIterationDuration < m) {
     currentIterationStart = m;
-    currentIterationDuration = floor(random(2000, 8000));
+    currentIterationDuration = floor(random(1500, 3000));
     currentIteration += 1;
 
     maybeCaptureFrame(0.0001, currentIteration, 0);
@@ -187,7 +187,7 @@ class MainLogoStep implements Step {
 
   void run(float playhead, int iteration) {
     maybeCaptureFrame(playhead, iteration, 0);
-    clear();
+    maybeClear(0.02);
     drawCapturedFrame(playhead, iteration, 0);
 
     tint(genBrightColor(100.0 * iteration));
@@ -207,7 +207,7 @@ class DottedLinesStep implements Step {
 
   void run(float playhead, int iteration) {
     maybeCaptureFrame(playhead, iteration, 0);
-    clear();
+    maybeClear(0.02);
     drawCapturedFrame(playhead, iteration, 0);
 
     int lines = floor(noise(0, iteration) * 10) + 1;
@@ -260,7 +260,7 @@ class Oscilations1 implements Step {
 
   void run(float playhead, int iteration) {
     maybeCaptureFrame(playhead, iteration, seed);
-    clear();
+    maybeClear(0.05);
     drawCapturedFrame(playhead, iteration, seed);
 
     // drawGrid(4, 4, genDarkColor(this.seed * iteration * 100));
@@ -297,7 +297,7 @@ class Oscilations2 implements Step {
 
   void run(float playhead, int iteration) {
     maybeCaptureFrame(playhead, iteration, seed);
-    clear();
+    maybeClear(0.02);
     drawCapturedFrame(playhead, iteration, seed);
 
     if (noise(iteration * 1, seed) > 0.3) {
@@ -344,7 +344,7 @@ class Oscilations3 implements Step {
 
   void run(float playhead, int iteration) {
     maybeCaptureFrame(playhead, iteration, seed);
-    clear();
+    maybeClear(0.01);
     drawCapturedFrame(playhead, iteration, seed);
 
     // float freqCarrier = 1;
@@ -479,15 +479,15 @@ class Oscilations4 implements Step {
   void setup(PApplet parent) {
     this.seed = random(1);
     this.ops = new Op[] {
-      // new Mult(),
-      // new Sum(),
+      new Mult(),
+      new Sum(),
       new Div(),
     };
   }
 
   void run(float playhead, int iteration) {
     maybeCaptureFrame(playhead, iteration, seed);
-    clear();
+    maybeClear(0.05);
     drawCapturedFrame(playhead, iteration, seed);
 
     if (noise(iteration * 1, seed) > 0.5) {
@@ -579,17 +579,37 @@ void maybeCaptureFrame(float playhead, int iteration, float seed) {
 void drawCapturedFrame(float playhead, int iteration, float seed) {
   float n = noise(iteration, seed * 1);
   int n10 = round(n * 10);
-  float n100_1 = min(round(noise(iteration, seed * 1) * 100 + 50), 100);
-  float n100_2 = min(round(noise(iteration, seed * 2) * 10 + 90), 100);
-  float n100_3 = min(round(noise(iteration, seed * 3) * 100 + 50), 100);
-  float np = noise(iteration + 2 * playhead, seed);
-  tint(n100_1, n100_2, n100_3, n100_2);
-  image(getCapturedFrame(),  round((n10 / 2) * n - n10), signs[int(n > 0.5)] * round((n100_3 * np / 2 - n10) / n10));
+  int n30 = round(n * 30);
+  float n100_1 = min(round(noise(iteration, seed * 1) * 100 + 0), 99);
+  float n100_2 = min(round(noise(iteration, seed * 2) * 80), 99);
+  float n100_3 = min(round(noise(iteration, seed * 3) * 100 + 0), 99);
+  float np = noise(iteration + 0.001 * playhead, seed);
+  float opa = n100_2;
+  if (np < 0.3) {
+    opa = 0;
+  }
+  tint(n100_1, n100_2, n100_3, opa);
+  pushMatrix();
+  translate(width / 2, height / 2);
+  rotate(np * PI / 90);
+  if (n > 0.7) {
+    scale(4 * np, 4 * np);
+  }
+  if (n < 0.3) {
+    translate(0.1 * width * (2 * np - 1), 0.1 * height * (2 * n - 1));
+  }
+  translate(-width / 2, -height /2);
+  image(getCapturedFrame(),  round((n30 / 2) - n30) * sin(2 * PI * np), cos(2 * PI * np) * round((n30 / 2) - n30));
   noTint();
+  popMatrix();
 }
 
 PImage getCapturedFrame() {
   return imgCapturedFrame;
+}
+
+void maybeClear(float p) {
+  // if (random(1) <= max(p, 1)) clear();
 }
 
 class FigureStep implements Step {
@@ -609,7 +629,7 @@ class FigureStep implements Step {
 
   void run(float playhead, int iteration) {
     maybeCaptureFrame(playhead, iteration, 0);
-    clear();
+    maybeClear(0.3);
     drawCapturedFrame(playhead, iteration, 0);
 
     int figures = int(noise(iteration * seed) * 5) + 1;
@@ -731,10 +751,10 @@ class ShowVideoStep implements Step {
   }
 
   void run(float playhead, int iteration) {
-    maybeCaptureFrame(playhead, iteration, 0);
-    clear();
-    drawCapturedFrame(playhead, iteration, 0);
-
+    maybeCaptureFrame(playhead, iteration, seed);
+    maybeClear(0.4);
+    drawCapturedFrame(playhead, iteration, seed);
+    
     if (this.movie == null || this.lastIteration != iteration) {
       if (this.movie != null) {
         this.movie.close();
@@ -802,13 +822,16 @@ class TextStep implements Step {
   }
 
   void run(float playhead, int iteration) {
-    maybeCaptureFrame(playhead, iteration, 0);
-    clear();
+    // maybeCaptureFrame(playhead, iteration, 0);
+    maybeClear(0.2);
     drawCapturedFrame(playhead, iteration, 0);
 
-    noStroke();
+    
     color c = genBrightColor(noise(seed * iteration, 11));
+    color c2 = genDarkColor(noise(seed * iteration, 11));
     fill(c);
+    strokeWeight(4);
+    stroke(c2);
 
     textSize(30);
 
@@ -830,5 +853,8 @@ class TextStep implements Step {
         lerpY(y += yInc)
       );
     }
+    strokeWeight(0);
+    noStroke();
+    noFill();
   }
 }

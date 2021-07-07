@@ -1,8 +1,8 @@
 // import processing.video.*;
 import gohai.glvideo.*;
 
-// import com.hamoid.VideoExport;
-// VideoExport videoExport;
+import com.hamoid.VideoExport;
+VideoExport videoExport;
 
 PVector vOrigin;
 PVector vSize;
@@ -42,6 +42,10 @@ color genDarkColor(float seed) {
   return color(noise(seed) * 100, 70, 50);
 }
 
+color genBGColor(float seed) {
+  return color(noise(seed) * 100, noise(seed * 100) * 70, 20);
+}
+
 void settings() {
   // size(640, 480, P2D);
   fullScreen(P2D);
@@ -56,11 +60,27 @@ color C_PURPLE;
 color C_GREEN;
 color C_WHITE;
 
+int BLEND_MODES[] = {
+  BLEND,
+  DIFFERENCE,
+  ADD,
+  LIGHTEST,
+  SUBTRACT,
+  EXCLUSION,
+  ADD,
+  BLEND,
+  SCREEN,
+};
+
+boolean EXPORT_VIDEO = true;
+
 void setup() {
   noCursor();
 
-  // videoExport = new VideoExport(this);
-  // videoExport.startMovie();
+  if (EXPORT_VIDEO) {
+    videoExport = new VideoExport(this);
+    videoExport.startMovie();
+  }
 
   vOrigin = new PVector(0, 0);
   vSize = new PVector(width, height);
@@ -89,16 +109,26 @@ void setup() {
 
   //  new Oscilations4(),
   //  new FigureStep(),
+  //  new DottedLinesStep(),
   //  new MainLogoStep(),
   //  new Oscilations3(),
   //  new TextStep(),
   //  // new TextStep(),
-
+  //  new Oscilations5(),
   //  new DottedLinesStep(),
   //  new Oscilations2(),
   //  new MainLogoStep(),
   //  new Oscilations1(),
   //  new TextStep(),
+  //};
+
+  //steps = new Step[] {
+  //  new Oscilations1(),
+  //  new Oscilations2(),
+  //  new Oscilations3(),
+  //  new Oscilations4(),
+  //  new Oscilations5(),
+  //  new Oscilations3(),
   //};
 
   for (Step step : steps) {
@@ -117,17 +147,20 @@ interface Step {
 }
 
 void draw() {
+
   int m = millis();
 
   if (currentIterationStart + currentIterationDuration < m) {
     currentIterationStart = m;
-    currentIterationDuration = floor(random(1500, 3000));
+    currentIterationDuration = floor(random(1500 + int(EXPORT_VIDEO) * 2000, 3000 + int(EXPORT_VIDEO) * 2000));
     currentIteration += 1;
 
     maybeCaptureFrame(0.0001, currentIteration, 0);
-    clear();
+    maybeClear(currentIteration);
 
-    blendMode(round(noise(currentIteration) * 3));
+    int blendModeIndex = floor(noise(currentIteration * 10) * BLEND_MODES.length);
+    int blendModeValue = BLEND_MODES[blendModeIndex];
+    blendMode(blendModeValue);
     drawCapturedFrame(0.0001, currentIteration, 0);
   }
 
@@ -136,24 +169,21 @@ void draw() {
   float playhead = float(currentProgress) / currentIterationDuration;
   steps[stepInd].run(playhead, currentIteration);
 
-  // videoExport.saveFrame();
+  if (EXPORT_VIDEO) {
+    videoExport.saveFrame();
+  }
 }
 
 void keyPressed() {
-  // if (key == 'q') {
-  //   videoExport.endMovie();
-  //   exit();
-  // }
-}
-
-class TestStep implements Step {
-  void setup(PApplet parent) {}
-  void run(float playhead, int iteration) {
-    clear();
-    fill(0, 0, 100);
-    noStroke();
-    rect(lerpX(0.1), lerpY(0.2), lerpW(0.2), lerpH(0.5));
-  }
+   if (key != 'q') {
+     return;
+   }
+   
+   if (EXPORT_VIDEO) {
+     videoExport.endMovie();
+   }
+   
+   exit();
 }
 
 
@@ -187,7 +217,7 @@ class MainLogoStep implements Step {
 
   void run(float playhead, int iteration) {
     maybeCaptureFrame(playhead, iteration, 0);
-    maybeClear(0.02);
+    maybeClear(iteration);
     drawCapturedFrame(playhead, iteration, 0);
 
     tint(genBrightColor(100.0 * iteration));
@@ -207,7 +237,7 @@ class DottedLinesStep implements Step {
 
   void run(float playhead, int iteration) {
     maybeCaptureFrame(playhead, iteration, 0);
-    maybeClear(0.02);
+    maybeClear(iteration);
     drawCapturedFrame(playhead, iteration, 0);
 
     int lines = floor(noise(0, iteration) * 10) + 1;
@@ -253,14 +283,20 @@ class DottedLinesStep implements Step {
 
 class Oscilations1 implements Step {
   float seed;
+  WaveShape waves[];
 
   void setup(PApplet parent) {
     this.seed = random(1);
+    this.waves = new WaveShape[] {
+      new SineWave(),
+      new SquareWave(),
+      new TriWave()
+    };
   }
 
   void run(float playhead, int iteration) {
     maybeCaptureFrame(playhead, iteration, seed);
-    maybeClear(0.05);
+    maybeClear(iteration * seed);
     drawCapturedFrame(playhead, iteration, seed);
 
     // drawGrid(4, 4, genDarkColor(this.seed * iteration * 100));
@@ -269,6 +305,7 @@ class Oscilations1 implements Step {
     int reduceQ = 5;
     float pointCount = int(width / reduceQ);
     float phi = playhead * 100 * TWO_PI * noise(seed * iteration);
+    WaveShape wave = waves[floor(noise(iteration, seed) * 10) % waves.length];
     // float phi = 0.0;
 
     noFill();
@@ -279,10 +316,10 @@ class Oscilations1 implements Step {
     for (int i = 0; i <= pointCount; i++) {
       float angle = map(i, 0, pointCount, 0, TWO_PI);
       float y = lerpYMargin(
-        (sin(angle * freq + radians(phi)) + 1) / 2,
+        (wave.calc(angle * freq + radians(phi)) + 1) / 2,
         0.2
       );
-      vertex(i * reduceQ, y);
+      wave.makeVertex(i * reduceQ, y);
     }
     endShape();
   }
@@ -290,19 +327,27 @@ class Oscilations1 implements Step {
 
 class Oscilations2 implements Step {
   float seed;
+  WaveShape waves[];
 
   void setup(PApplet parent) {
     this.seed = random(1);
+    this.waves = new WaveShape[] {
+      new SineWave(),
+      new SquareWave(),
+      new TriWave()
+    };
   }
 
   void run(float playhead, int iteration) {
     maybeCaptureFrame(playhead, iteration, seed);
-    maybeClear(0.02);
+    maybeClear(iteration * seed);
     drawCapturedFrame(playhead, iteration, seed);
 
     if (noise(iteration * 1, seed) > 0.3) {
       drawGrid(10, 10, genDarkColor(this.seed * iteration * 100));
     }
+    WaveShape wave1 = waves[floor(noise(iteration, seed) * 10) % waves.length];
+    WaveShape wave2 = waves[floor(noise(iteration * 10, seed) * 10) % waves.length];
 
     // float freqCarrier = 1;
     float freqCarrier = (
@@ -326,10 +371,10 @@ class Oscilations2 implements Step {
     beginShape();
     for (int i = 0; i <= pointCount; i++) {
       float angle = map(i, 0, pointCount, 0, TWO_PI);
-      float signal = sin(angle * freqSignal + radians(phi));
-      float carrier = cos(angle * freqCarrier);
+      float signal = wave1.calc(angle * freqSignal + radians(phi));
+      float carrier = wave2.calc(angle * freqCarrier + PI / 2);
       float y = lerpYMargin((signal * carrier + 1) / 2, 0.2);
-      vertex(i * 5, y);
+      wave1.makeVertex(i * 5, y);
     }
     endShape();
   }
@@ -337,15 +382,25 @@ class Oscilations2 implements Step {
 
 class Oscilations3 implements Step {
   float seed;
+  WaveShape waves[];
 
   void setup(PApplet parent) {
     this.seed = random(1);
+    this.waves = new WaveShape[] {
+      new SineWave(),
+      new SquareWave(),
+      new TriWave()
+    };
   }
 
   void run(float playhead, int iteration) {
     maybeCaptureFrame(playhead, iteration, seed);
-    maybeClear(0.01);
+    maybeClear(iteration * seed);
     drawCapturedFrame(playhead, iteration, seed);
+    
+    WaveShape wave1 = waves[floor(noise(iteration, seed) * 10) % waves.length];
+    WaveShape wave2 = waves[floor(noise(iteration * 10, seed) * 10) % waves.length];
+
 
     // float freqCarrier = 1;
 
@@ -398,18 +453,18 @@ class Oscilations3 implements Step {
       float angle = map(i, 0, pointCount, 0, TWO_PI);
 
       float x = (
-        sin(angle * freqSignalX + radians(phi)) *
-        cos(angle * freqCarrierX) +
+        wave1.calc(angle * freqSignalX + radians(phi)) *
+        wave2.calc(angle * freqCarrierX + PI / 2) +
         1
       ) / 2;
 
       float y = (
-        sin(angle * freqSignalY) *
-        cos(angle * freqCarrierY) +
+        wave1.calc(angle * freqSignalY) *
+        wave2.calc(angle * freqCarrierY + PI / 2) +
         1
       ) / 2;
 
-      vertex(lerpX(x), lerpYMargin(y, 0.1));
+      wave1.makeVertex(lerpX(x), lerpYMargin(y, 0.1));
     }
 
     endShape();
@@ -475,6 +530,7 @@ int[] signs = new int[]{ 1, -1 };
 class Oscilations4 implements Step {
   float seed;
   Op ops[];
+  WaveShape waves[];
 
   void setup(PApplet parent) {
     this.seed = random(1);
@@ -483,12 +539,20 @@ class Oscilations4 implements Step {
       new Sum(),
       new Div(),
     };
+    this.waves = new WaveShape[] {
+      new SineWave(),
+      new SquareWave(),
+      new TriWave()
+    };
   }
 
   void run(float playhead, int iteration) {
     maybeCaptureFrame(playhead, iteration, seed);
-    maybeClear(0.05);
+    maybeClear(iteration * seed);
     drawCapturedFrame(playhead, iteration, seed);
+
+    WaveShape wave1 = waves[floor(noise(iteration, seed) * 10) % waves.length];
+    WaveShape wave2 = waves[floor(noise(iteration * 10, seed) * 10) % waves.length];
 
     if (noise(iteration * 1, seed) > 0.5) {
       drawGrid(10, 10, genDarkColor(this.seed * iteration * 100));
@@ -518,8 +582,8 @@ class Oscilations4 implements Step {
 
     for (int i = 0; i < pointCount; i++) {
       float angle = map(i, 0, pointCount, 0, TWO_PI);
-      float signal = (1 + sin(angle * freqSignal + radians(phi))) / 2;
-      float carrier = (1 + sin(angle * freqCarrier + radians(phi))) / 2;
+      float signal = (1 + wave1.calc(angle * freqSignal + radians(phi))) / 2;
+      float carrier = (1 + wave2.calc(angle * freqCarrier + radians(phi))) / 2;
       signalPoints[i] = signal;
       carrierPoints[i] = carrier;
     }
@@ -531,7 +595,7 @@ class Oscilations4 implements Step {
         vOrigin.y + vSize.y * 0.3,
         signalPoints[i]
       );
-      vertex(i * 5, y);
+      wave1.makeVertex(i * 5, y);
     }
     endShape();
 
@@ -542,7 +606,7 @@ class Oscilations4 implements Step {
         vOrigin.y + vSize.y * 0.63,
         carrierPoints[i]
       );
-      vertex(i * 5, y);
+      wave2.makeVertex(i * 5, y);
     }
     endShape();
 
@@ -554,11 +618,151 @@ class Oscilations4 implements Step {
         op.apply(signalPoints[i],  carrierPoints[i])
       );
 
-      vertex(i * 5, y);
+      wave1.makeVertex(i * 5, y);
     }
     endShape();
   }
 }
+
+interface WaveShape {
+  float calc(float phase);
+  void makeVertex(float x, float y);
+}
+
+float normPhase(float phase) {
+  while (phase < 0) phase += 2 * PI;
+  return (phase - floor(phase / ( 2 * PI)) * 2 * PI) / (2 * PI);
+}
+
+class SquareWave implements WaveShape {
+  float calc(float phase) {
+    float phaseNorm = normPhase(phase);
+    if (phaseNorm > 0.9) return 1 - 20 * (phaseNorm - 0.9);
+    if (phaseNorm > 0.5) return 1;
+    if (phaseNorm > 0.4) return 1 - 20 * (0.5 - phaseNorm);
+    return -1;
+  }
+  
+  void makeVertex(float x, float y) {
+    vertex(x, y);
+  }
+}
+
+class TriWave implements WaveShape {
+  float calc(float phase) {
+    float phaseNorm = normPhase(phase);
+    if (phaseNorm < 0.5) {
+      return phaseNorm * 4 - 1;
+    }
+    
+    return 1 - (phaseNorm - 0.5) * 4;
+  }
+  
+  void makeVertex(float x, float y) {
+    curveVertex(x, y);
+  }
+}
+
+class SineWave implements WaveShape {
+  float calc(float phase) {
+    return sin(phase);
+  }
+  
+  void makeVertex(float x, float y) {
+    curveVertex(x, y);
+  }
+}
+
+class Oscilations5 implements Step {
+  float seed;
+  Op ops[];
+  WaveShape waves[];
+
+  void setup(PApplet parent) {
+    this.seed = random(1);
+    this.ops = new Op[] {
+      new Mult(),
+      new Sum(),
+      new Div(),
+    };
+    this.waves = new WaveShape[] {
+      new SineWave(),
+      new SquareWave(),
+      new TriWave()
+    };
+  }
+
+  void run(float playhead, int iteration) {
+    maybeCaptureFrame(playhead, iteration, seed);
+    maybeClear(iteration * seed);
+    drawCapturedFrame(playhead, iteration, seed);
+    
+    float n = noise(iteration * 1, seed);
+
+    // float freqCarrier = 1;
+    float freqCarrier = (
+      n *
+      pow(10, floor(noise(iteration * 2, seed) * 3))
+    );
+    // float freqSignal = 0.2;
+    float freqSignal = (
+      noise(iteration * 3, seed) *
+      pow(10, floor(noise(iteration * 4, seed) * 3))
+    );
+
+    int reduceQ = round(n * 50);
+    int pointCount = int(width / reduceQ);
+    float phi = playhead * 100 * TWO_PI * noise(seed * iteration) * 0.1;
+    Op op = ops[floor(noise(iteration, seed) * 10) % ops.length];
+    WaveShape wave1 = this.waves[floor(noise(iteration, seed) * 10) % waves.length];
+    WaveShape wave2 = this.waves[floor(noise(iteration, seed) * 10) % waves.length];
+    noStroke();
+    
+    color[] colors = new color[pointCount];
+    float[] signalPoints = new float[pointCount];
+    float[] carrierPoints = new float[pointCount];
+
+    for (int i = 0; i < pointCount; i++) {
+      float angle = map(i, 0, pointCount, 0, TWO_PI);
+      float signal = (1 + wave1.calc(angle * freqSignal + radians(phi))) / 2;
+      float carrier = (1 + wave2.calc(angle * freqCarrier + radians(phi))) / 2;
+      signalPoints[i] = signal;
+      carrierPoints[i] = carrier;
+      colors[i] = genBrightColor(this.seed * iteration + i * 0.05);
+      if (n > 0.5) colors[i] = genDarkColor(this.seed * iteration + i * 0.05);
+    }
+
+    for (int i = 0; i < pointCount; i++) {
+      float y1 = lerp(
+        vOrigin.y + vSize.y * 0.05,
+        vOrigin.y + vSize.y * 0.3,
+        signalPoints[i]
+      );
+      float y2 = lerp(
+        vOrigin.y + vSize.y * 0.36,
+        vOrigin.y + vSize.y * 0.63,
+        carrierPoints[i]
+      );
+      float y3 = lerp(
+        vOrigin.y + vSize.y * 0.69,
+        vOrigin.y + vSize.y * 0.95,
+        op.apply(signalPoints[i],  carrierPoints[i])
+      );
+      fill(colors[round(i + playhead * pointCount * 0.07) % pointCount]);
+      arcCircle(i * reduceQ, y1, n * 40);
+      fill(colors[round(n * i * 10 + playhead * pointCount * 0.07) % pointCount]);
+      arcCircle(i * reduceQ, y2, n * 40);
+      fill(colors[round(n * i * 100 + playhead * pointCount * 0.07) % pointCount]);
+      arcCircle(i * reduceQ, y3, n * 40);
+    }
+  }
+}
+
+
+void arcCircle(float x, float y, float r) {
+  arc(x, y, r, r, 0, PI * 2);
+}
+
 
 void captureFrame() {
   loadPixels();
@@ -591,11 +795,11 @@ void drawCapturedFrame(float playhead, int iteration, float seed) {
   tint(n100_1, n100_2, n100_3, opa);
   pushMatrix();
   translate(width / 2, height / 2);
-  rotate(np * PI / 90);
+  rotate((0.5 - np) * PI / 90);
   if (n > 0.7) {
     scale(4 * np, 4 * np);
   }
-  if (n < 0.3) {
+  if (n < 0.5) {
     translate(0.1 * width * (2 * np - 1), 0.1 * height * (2 * n - 1));
   }
   translate(-width / 2, -height /2);
@@ -609,7 +813,9 @@ PImage getCapturedFrame() {
 }
 
 void maybeClear(float p) {
-  // if (random(1) <= max(p, 1)) clear();
+  float n = noise(p);
+  if (n > 0.85) clear();
+  background(genBGColor(p));
 }
 
 class FigureStep implements Step {
@@ -800,17 +1006,10 @@ String[] EVENTS = new String[] {
 //   "25.09 15:00 – Build your synth with Error Instruments",
 //   "25.09 18:00 – [Ge]narrative exhibition opening",
 //   "29.09 16:00 – DIYDay Electronics Co-working",
-  "Stay safe",
-  "Stay safe",
-  "Stay safe",
-  "Stay safe",
-  "Stay safe",
-  "Stay safe",
-  "Stay safe",
-  "Stay safe",
-  "Stay safe",
-  "Stay safe",
-  "Stay safe",
+  "Wed, Thu:  10:00-12:00, 16:00-20:00",
+  "Fri:       10:00-12:00, 16:00-18:00",
+  "Sat:       12:00-16:00",
+  "Sun, Mon, Tue: workshops & appointments"
 };
 
 class TextStep implements Step {
@@ -823,7 +1022,7 @@ class TextStep implements Step {
 
   void run(float playhead, int iteration) {
     // maybeCaptureFrame(playhead, iteration, 0);
-    maybeClear(0.2);
+    maybeClear(iteration);
     drawCapturedFrame(playhead, iteration, 0);
 
     
@@ -836,7 +1035,7 @@ class TextStep implements Step {
     textSize(30);
 
     text(
-      "We are coming back soon",
+      "We are back",
       lerpX(0.06),
       lerpY(0.15)
     );
